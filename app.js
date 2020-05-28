@@ -2,10 +2,11 @@ require('dotenv').config()
 const express = require('express')
 const ejs = require('ejs')
 const bodyParser = require('body-parser')
-const mongoose = require('mongoose')
 const session = require('express-session')
 const passport = require('passport')
-const passportLocalMongoose = require('passport-local-mongoose')
+const initializePassport = require('./passportInit')
+const User = require('./db')
+const bcrypt = require('bcrypt')
 
 const app = express()
 const port = process.env.port || 3000
@@ -14,87 +15,105 @@ app.set('view engine', 'ejs')
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(express.static('public'))
 
+initializePassport.initializePassportLocal(passport)
+initializePassport.initializePassportGoogle(passport)
+
 app.use(session({
-    secret: process.env.SECRET,
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
 }))
 
-app.use(passport.initialize());
+app.use(passport.initialize())
 app.use(passport.session());
 
-mongoose.connect('mongodb://localhost:27017/userDB', {useNewUrlParser: true, useUnifiedTopology: true})
+const checkAuthenticated = (req, res, next) => {
+    if(req.isAuthenticated()){
+        return next()
+    }
 
-const userSchema = new mongoose.Schema({
-    username: String,
-    password: String
-})
+    return res.redirect('/login')
+}
 
-userSchema.plugin(passportLocalMongoose)
+const checkNotAuthenticated = (req, res, next) => {
+    if(req.isAuthenticated()){
+        return res.redirect('/secrets')
+    }
 
-const User = mongoose.model('User', userSchema)
+    return next()
+}
 
-passport.use(User.createStrategy())
-passport.serializeUser(User.serializeUser())
-passport.deserializeUser(User.deserializeUser())
-
-app.get('/', (req,res) => {
+app.get('/', checkNotAuthenticated, (req,res) => {
     res.render('home')
 })
 
-app.get('/login', (req,res) => {
+app.get('/login',checkNotAuthenticated, (req,res) => {
     res.render('login')
 })
 
-app.get('/register', (req,res) => {
+app.get('/register',checkNotAuthenticated, (req,res) => {
     res.render('register')
 })
 
-app.post('/register', (req,res) => {
+app.post('/register', async (req,res) => {
 
-    User.register({ username: req.body.username }, req.body.password, (err, user) => {
+    //check if email already exists
+
+    User.findOne({ username: req.body.email }, (err, foundUser) => {
         if(err){
             console.log(err);
-            res.redirect('/login')
-        } else{
-            passport.authenticate('local')(req, res, () => {
-                res.redirect('/secrets')
-            })
             
+        }else{
+            if(foundUser){
+                console.log('Looks like you are already registered. Go ahead and login !' );
+                res.redirect('/login')  
+            } else{
+                bcrypt.hash(req.body.password, 10, (err, hashedPassword) => {
+                    if(err){
+                        console.log(err);
+                        
+                    } else{
+                        const newUser = new User({
+                            username: req.body.email,
+                            password: hashedPassword,
+                            alias: req.body.alias
+                        })
+
+                        newUser.save()
+                        res.redirect('/secrets')
+                    }
+                })
+            }
         }
-    })
+    })  
     
 })
 
-app.get('/secrets', (req, res) => {
+app.get('/secrets', checkAuthenticated, (req, res) => {
+    
     if(req.isAuthenticated()){
-        res.render('secrets')
+        res.render('secrets', { name: req.user.alias })
     } else {
         res.redirect('/login')
     }
 })
 
-app.post('/login', (req, res) => {
-
-    const user = new User({
-        username: req.body.username,
-        password: req.body.password
-    })
-
-    req.login(user, (err) => {
-        if(err){
-            console.log(err);
-            
-        } else{
-            res.redirect('/secrets')
-        }
-    })
-})
+app.post('/login', passport.authenticate('local', {
+    successRedirect: '/secrets',
+    failureRedirect: '/login'
+}))
 
 app.get('/logout', (req, res) => {
-    req.logout()
+    req.logOut()
     res.redirect('/')
 })
+
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile'] }))
+
+app.get('/login/google-auth', passport.authenticate('google', {failureRedirect: '/login'}), (req, res) => {
+    
+    res.redirect('/secrets')
+} )
 
 app.listen(port, () => console.log('Listening on port ' + port)
 )

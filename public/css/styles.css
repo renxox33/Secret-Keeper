@@ -14,3 +14,34 @@ body {
   color: #fff;
   background-color: #000;
 }
+
+.social-heading{
+  position: relative;
+  top: 4%;
+  left: 5%;
+}
+
+.social-row{
+  position: relative;
+  top: 9%;
+}
+
+.social-app{
+  padding: 2% 0
+}
+
+.btn-block{
+  text-align: left;
+}
+
+.fa-twitter:hover{
+  color: rgba(29,161,242,1.00);
+}
+
+.fa-google:hover{
+  color: orange;
+}
+
+.fa-facebook:hover{
+  color: #035aa6;
+}
