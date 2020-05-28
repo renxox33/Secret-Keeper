@@ -18,7 +18,7 @@ body {
 .social-heading{
   position: relative;
   top: 4%;
-  left: 5%;
+  left: 4%;
 }
 
 .social-row{
@@ -27,7 +27,7 @@ body {
 }
 
 .social-app{
-  padding: 2% 0
+  padding: 2% 3%
 }
 
 .btn-block{
