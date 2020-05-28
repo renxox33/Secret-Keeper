@@ -54,22 +54,30 @@ require('dotenv').config()
       clientID: process.env.CLIENT_ID,
       clientSecret: process.env.CLIENT_SECRET,
       callbackURL: 'http://localhost:3000/login/google-auth'
-   }, (accessToken, refreshToken, profile, cb) => {      
+   }, (accessToken, refreshToken, profile, cb) => {
+      console.log(profile.id);
+            
 
-      User.findOne({ gid: profile.id }, (err, foundUser) => {
+      User.findOne({ googleId: profile.id }, (err, foundUser) => {
+
          if(err) return cb(err, null)
-
+         else{
+            console.log(foundUser);
+            
             if(foundUser) return cb(null, foundUser)
 
             else{
                const newUser = new User({
-                  gid: 'profile.id',
+                  googleId: profile.id,
                   alias: profile.name.givenName
                })
-
+               console.log(newUser);
+               
                newUser.save()
                return cb(null, newUser)
             }
+         }
+            
 
       })
    }
